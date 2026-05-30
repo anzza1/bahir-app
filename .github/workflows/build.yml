@@ -23,15 +23,11 @@ jobs:
 
       - name: Generate Android scaffold
         run: |
-          flutter create --project-name bahir --org com.bahir /tmp/bahir_temp --platforms android
+          flutter create --project-name bahir --org com.bahir /tmp/t --platforms android
           rm -rf android
-          cp -r /tmp/bahir_temp/android .
+          cp -r /tmp/t/android .
           mkdir -p android/app/src/main/kotlin/com/bahir/bahir
-          cat > android/app/src/main/kotlin/com/bahir/bahir/MainActivity.kt << 'KTEOF'
-          package com.bahir.bahir
-          import io.flutter.embedding.android.FlutterActivity
-          class MainActivity: FlutterActivity()
-          KTEOF
+          printf 'package com.bahir.bahir\nimport io.flutter.embedding.android.FlutterActivity\nclass MainActivity: FlutterActivity()\n' > android/app/src/main/kotlin/com/bahir/bahir/MainActivity.kt
 
       - name: Install dependencies
         run: flutter pub get
