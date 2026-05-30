@@ -1,11 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
+import '../core/constants.dart';
 import '../core/theme.dart';
 import '../services/app_state.dart';
 import '../services/api_service.dart';
 import '../widgets/bahir_button.dart';
-import '../widgets/toast_overlay.dart';
 import 'home_screen.dart';
 
 class IdentityScreen extends StatefulWidget {
@@ -15,48 +16,39 @@ class IdentityScreen extends StatefulWidget {
 }
 
 class _IdentityScreenState extends State<IdentityScreen> {
-  bool _loading=false, _showImport=false;
+  bool _loading = false, _showImport = false;
   final _importCtrl = TextEditingController();
   String _debugMsg = '';
 
   Future<void> _createNew() async {
-    setState(() { _loading=true; _debugMsg='جارٍ الاتصال بـ $kApiBase ...'; });
-    
+    setState(() { _loading = true; _debugMsg = 'جارٍ الاتصال بـ $kApiBase'; });
     final api = ApiService();
     final result = await api.createIdentityRaw();
-    
     if (!mounted) return;
-    
     if (result['ok'] == true) {
       try {
-        import 'dart:convert';
-        final j = jsonDecode(result['body']);
+        final j = jsonDecode(result['body'] as String);
         if (j['ok'] == true) {
-          final ok = await context.read<AppState>().createIdentity();
+          final ok = await context.read<AppState>().importIdentity(jsonEncode({'did': j['did'], 'pub': j['public_key'] ?? j['pub']}));
           if (ok) { _go(); return; }
         }
-      } catch(e) {
-        setState(() { _loading=false; _debugMsg='خطأ: ${e.toString()}'; });
-        return;
+        setState(() { _loading = false; _debugMsg = 'Response: ${result['body']}'; });
+      } catch (e) {
+        setState(() { _loading = false; _debugMsg = 'Parse error: $e'; });
       }
+    } else {
+      setState(() { _loading = false; _debugMsg = 'Error: ${result['error']}'; });
     }
-    
-    setState(() {
-      _loading=false;
-      _debugMsg = result['ok'] == true 
-        ? 'HTTP ${result['status']}: ${result['body']}'
-        : 'خطأ: ${result['error']}';
-    });
   }
 
   Future<void> _import() async {
     final txt = _importCtrl.text.trim();
     if (txt.isEmpty) return;
-    setState(() => _loading=true);
+    setState(() => _loading = true);
     final ok = await context.read<AppState>().importIdentity(txt);
     if (!mounted) return;
     if (ok) _go();
-    else { setState(() => _loading=false); ToastOverlay.show(context, 'بيانات غير صالحة', isError:true); }
+    else setState(() => _loading = false);
   }
 
   void _go() => Navigator.pushReplacement(context,
@@ -65,67 +57,41 @@ class _IdentityScreenState extends State<IdentityScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: BahirTheme.bg,
-    body: Container(
-      decoration: const BoxDecoration(gradient: RadialGradient(
-        center: Alignment(0,-0.5), radius: 1.0,
-        colors: [Color(0xFF0D2050), BahirTheme.bg])),
-      child: SafeArea(child: Center(child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Container(
-          width: 360, padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(color: BahirTheme.surface,
-            border: Border.all(color: BahirTheme.border),
-            borderRadius: BorderRadius.circular(20)),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            ShaderMask(
-              shaderCallback: (b) => const LinearGradient(
-                colors: [BahirTheme.blue2, BahirTheme.indigo]).createShader(b),
-              child: const Text('BAHIR', style: TextStyle(
-                fontSize: 38, fontWeight: FontWeight.w900,
-                letterSpacing: 5, color: Colors.white)),
-            ).animate().fadeIn(duration: 500.ms),
-            const SizedBox(height: 4),
-            const Text('اتصال لامركزي ومشفر',
-              style: TextStyle(color: BahirTheme.dim, fontSize: 12, letterSpacing: 1))
-                .animate(delay: 200.ms).fadeIn(),
-            const SizedBox(height: 28),
-            if (_debugMsg.isNotEmpty) Container(
-              padding: const EdgeInsets.all(10),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.black45,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: BahirTheme.border)),
-              child: SelectableText(_debugMsg,
-                style: const TextStyle(color: BahirTheme.green, fontSize: 10, fontFamily: 'monospace'),
-                textDirection: TextDirection.ltr)),
-            if (_loading) ...[
-              const SizedBox(height: 20),
-              const CircularProgressIndicator(color: BahirTheme.accent, strokeWidth: 2),
-              const SizedBox(height: 16),
-              Text(_debugMsg.isNotEmpty ? _debugMsg : 'جارٍ الاتصال...',
-                style: const TextStyle(color: BahirTheme.dim, fontSize: 11),
-                textAlign: TextAlign.center),
-              const SizedBox(height: 20),
-            ] else if (!_showImport) ...[
-              BahirButton(label: '✨  هوية جديدة', onTap: _createNew)
-                  .animate(delay: 400.ms).fadeIn(),
-              const SizedBox(height: 10),
-              BahirButton(label: '📥  استيراد هوية', onTap: () => setState(() => _showImport=true), outlined: true)
-                  .animate(delay: 500.ms).fadeIn(),
-            ] else ...[
-              TextField(controller: _importCtrl, maxLines: 4,
-                textDirection: TextDirection.ltr,
-                style: const TextStyle(fontSize: 12, color: BahirTheme.text),
-                decoration: const InputDecoration(hintText: '{"did":"bahir:...","pub":"..."}')),
-              const SizedBox(height: 12),
-              BahirButton(label: 'استيراد', onTap: _import),
-              const SizedBox(height: 8),
-              BahirButton(label: 'رجوع', onTap: () => setState(() => _showImport=false), outlined: true),
-            ],
-          ]),
-        ).animate(delay: 100.ms).fadeIn(duration: 400.ms),
-      ))),
-    ),
+    body: SafeArea(child: Center(child: SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Container(
+        width: 360, padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(color: BahirTheme.surface,
+          border: Border.all(color: BahirTheme.border),
+          borderRadius: BorderRadius.circular(20)),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('BAHIR', style: TextStyle(fontSize: 38, fontWeight: FontWeight.w900, color: BahirTheme.blue2)),
+          const SizedBox(height: 20),
+          if (_debugMsg.isNotEmpty) Container(
+            padding: const EdgeInsets.all(10),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+            child: SelectableText(_debugMsg,
+              style: const TextStyle(color: Colors.greenAccent, fontSize: 10),
+              textDirection: TextDirection.ltr)),
+          if (_loading)
+            const CircularProgressIndicator(color: BahirTheme.accent, strokeWidth: 2)
+          else if (!_showImport) ...[
+            BahirButton(label: '✨ هوية جديدة', onTap: _createNew),
+            const SizedBox(height: 10),
+            BahirButton(label: '📥 استيراد هوية', onTap: () => setState(() => _showImport = true), outlined: true),
+          ] else ...[
+            TextField(controller: _importCtrl, maxLines: 4,
+              textDirection: TextDirection.ltr,
+              style: const TextStyle(fontSize: 12, color: BahirTheme.text),
+              decoration: const InputDecoration(hintText: '{"did":"...","pub":"..."}')),
+            const SizedBox(height: 12),
+            BahirButton(label: 'استيراد', onTap: _import),
+            const SizedBox(height: 8),
+            BahirButton(label: 'رجوع', onTap: () => setState(() => _showImport = false), outlined: true),
+          ],
+        ]),
+      ),
+    ))),
   );
 }
