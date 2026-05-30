@@ -8,6 +8,18 @@ class ApiService {
   void setToken(String t) => _token = t;
   Map<String, String> get _h => {'Content-Type': 'application/json', 'X-API-Token': _token};
 
+  Future<Map<String, dynamic>> createIdentityRaw() async {
+    try {
+      final r = await http.post(
+        Uri.parse('$kApiBase/identity/new'),
+        headers: _h,
+      ).timeout(kTimeout);
+      return {'ok': true, 'body': r.body, 'status': r.statusCode};
+    } catch (e) {
+      return {'ok': false, 'error': e.toString()};
+    }
+  }
+
   Future<Identity?> createIdentity() async {
     try {
       final r = await http.post(Uri.parse('$kApiBase/identity/new'), headers: _h).timeout(kTimeout);

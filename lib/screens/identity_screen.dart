@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../services/app_state.dart';
+import '../services/api_service.dart';
 import '../widgets/bahir_button.dart';
 import '../widgets/toast_overlay.dart';
 import 'home_screen.dart';
@@ -16,13 +17,36 @@ class IdentityScreen extends StatefulWidget {
 class _IdentityScreenState extends State<IdentityScreen> {
   bool _loading=false, _showImport=false;
   final _importCtrl = TextEditingController();
+  String _debugMsg = '';
 
   Future<void> _createNew() async {
-    setState(() => _loading=true);
-    final ok = await context.read<AppState>().createIdentity();
+    setState(() { _loading=true; _debugMsg='جارٍ الاتصال بـ $kApiBase ...'; });
+    
+    final api = ApiService();
+    final result = await api.createIdentityRaw();
+    
     if (!mounted) return;
-    if (ok) _go();
-    else { setState(() => _loading=false); ToastOverlay.show(context, 'تعذر الاتصال بالسيرفر', isError:true); }
+    
+    if (result['ok'] == true) {
+      try {
+        import 'dart:convert';
+        final j = jsonDecode(result['body']);
+        if (j['ok'] == true) {
+          final ok = await context.read<AppState>().createIdentity();
+          if (ok) { _go(); return; }
+        }
+      } catch(e) {
+        setState(() { _loading=false; _debugMsg='خطأ: ${e.toString()}'; });
+        return;
+      }
+    }
+    
+    setState(() {
+      _loading=false;
+      _debugMsg = result['ok'] == true 
+        ? 'HTTP ${result['status']}: ${result['body']}'
+        : 'خطأ: ${result['error']}';
+    });
   }
 
   Future<void> _import() async {
@@ -65,26 +89,31 @@ class _IdentityScreenState extends State<IdentityScreen> {
               style: TextStyle(color: BahirTheme.dim, fontSize: 12, letterSpacing: 1))
                 .animate(delay: 200.ms).fadeIn(),
             const SizedBox(height: 28),
+            if (_debugMsg.isNotEmpty) Container(
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: BahirTheme.border)),
+              child: SelectableText(_debugMsg,
+                style: const TextStyle(color: BahirTheme.green, fontSize: 10, fontFamily: 'monospace'),
+                textDirection: TextDirection.ltr)),
             if (_loading) ...[
               const SizedBox(height: 20),
               const CircularProgressIndicator(color: BahirTheme.accent, strokeWidth: 2),
               const SizedBox(height: 16),
-              const Text('جارٍ الاتصال...', style: TextStyle(color: BahirTheme.dim, fontSize: 13)),
+              Text(_debugMsg.isNotEmpty ? _debugMsg : 'جارٍ الاتصال...',
+                style: const TextStyle(color: BahirTheme.dim, fontSize: 11),
+                textAlign: TextAlign.center),
               const SizedBox(height: 20),
             ] else if (!_showImport) ...[
-              const Text('هويتك مشفرة — السيرفر لا يعرف محتوى رسائلك',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: BahirTheme.dim, fontSize: 12)),
-              const SizedBox(height: 20),
               BahirButton(label: '✨  هوية جديدة', onTap: _createNew)
                   .animate(delay: 400.ms).fadeIn(),
               const SizedBox(height: 10),
               BahirButton(label: '📥  استيراد هوية', onTap: () => setState(() => _showImport=true), outlined: true)
                   .animate(delay: 500.ms).fadeIn(),
             ] else ...[
-              const Text('الصق بيانات هويتك',
-                style: TextStyle(color: BahirTheme.dim, fontSize: 12)),
-              const SizedBox(height: 12),
               TextField(controller: _importCtrl, maxLines: 4,
                 textDirection: TextDirection.ltr,
                 style: const TextStyle(fontSize: 12, color: BahirTheme.text),
