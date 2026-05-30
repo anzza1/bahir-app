@@ -1,0 +1,21 @@
+name: bahir
+description: BAHIR — اتصال لامركزي ومشفر
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  web_socket_channel: ^2.4.0
+  http: ^1.2.0
+  shared_preferences: ^2.2.2
+  flutter_animate: ^4.5.0
+  google_fonts: ^6.2.1
+  provider: ^6.1.2
+  cupertino_icons: ^1.0.6
+
+flutter:
+  uses-material-design: true
