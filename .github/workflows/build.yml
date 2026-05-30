@@ -28,7 +28,18 @@ jobs:
           cp -r /tmp/t/android .
           mkdir -p android/app/src/main/kotlin/com/bahir/bahir
           printf 'package com.bahir.bahir\nimport io.flutter.embedding.android.FlutterActivity\nclass MainActivity: FlutterActivity()\n' > android/app/src/main/kotlin/com/bahir/bahir/MainActivity.kt
-          sed -i 's/android:label="bahir"/android:label="BAHIR" android:usesCleartextTraffic="true"/' android/app/src/main/AndroidManifest.xml
+          mkdir -p android/app/src/main/res/xml
+          cat > android/app/src/main/res/xml/network_security_config.xml << 'XMLEOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <network-security-config>
+              <base-config cleartextTrafficPermitted="true">
+                  <trust-anchors>
+                      <certificates src="system"/>
+                  </trust-anchors>
+              </base-config>
+          </network-security-config>
+          XMLEOF
+          sed -i 's/android:label="bahir"/android:label="BAHIR" android:usesCleartextTraffic="true" android:networkSecurityConfig="@xml\/network_security_config"/' android/app/src/main/AndroidManifest.xml
 
       - name: Install dependencies
         run: flutter pub get
